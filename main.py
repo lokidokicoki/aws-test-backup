@@ -3,7 +3,7 @@
 import argparse
 import time
 import logging
-from os import path, scandir, walk
+from os import path, scandir, walk, remove
 from botocore.exceptions import ClientError
 
 try:
@@ -13,7 +13,7 @@ except ImportError:
     raise
 
 
-def upload_file(file_name, bucket, object_name=None):
+def uploadFile(fileName, bucket, objectName=None):
     """Upload a file to an S3 bucket, taken form https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-uploading-files.html
 
     :param file_name: File to upload
@@ -23,14 +23,14 @@ def upload_file(file_name, bucket, object_name=None):
     """
 
     # If S3 object_name was not specified, use file_name
-    if object_name is None:
-        object_name = file_name
+    if objectName is None:
+        objectName = fileName
 
     # Upload the file
-    s3_client = boto3.client("s3")
+    s3Client = boto3.client("s3")
     try:
-        response = s3_client.upload_file(file_name, bucket, object_name)
-        print(response)
+        s3Client.upload_file(fileName, bucket, objectName)
+
     except ClientError as e:
         logging.error(e)
         return False
@@ -83,20 +83,28 @@ def main():
     for r, d, f in walk(args.basedir):
         for file in f:
             # construct object name from file
-            filename = path.join(r, file)
+            fileName = path.join(r, file)
 
-            modtime = time.strftime(
-                "%Y/%m/%d/%H/%M", time.localtime(path.getmtime(filename))
+            modTime = time.strftime(
+                "%Y/%m/%d/%H/%M", time.localtime(path.getmtime(fileName))
             )
 
-            dirname = path.dirname(filename)
-            basename = path.basename(filename)
-            if not basename.endswith(".dat"):
-                basename = f"{basename}.dat"
+            dirName = path.dirname(fileName)
+            baseName = path.basename(fileName)
+            if not baseName.endswith(".dat"):
+                baseName = f"{baseName}.dat"
 
-            objectName = f"{dirname}/{modtime}-{basename}"
+            objectName = f"{dirName}/{modTime}-{baseName}"
 
-            print(filename, objectName)
+            if uploadFile(fileName, args.s3bucket, objectName):
+                # remove file
+                try:
+                    remove(fileName)
+                except OSError as e:
+                    ## if failed, report it back to the user ##
+                    print("Error: %s - %s." % (e.filename, e.strerror))
+            else:
+                print(f"Failed to upload: {fileName}")
 
 
 if __name__ == "__main__":

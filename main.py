@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import time
 import logging
 from os import path, scandir, walk
 from botocore.exceptions import ClientError
@@ -40,11 +41,14 @@ def main():
     """
     Parse incoming arguments; require basedir and s3bucket
 
+    S3object naming convention: base-dir/location/YYYY/MM/DD/HH/mm-topic.dat
+    mapped to filename: base-dir/<sub-dri>/YYYY/MM/DD/HH/mm-<filename>.dat
+
+    Process:
     check connectivitiy to target S3 bucket; if unavailable, raise and exit
     get list of files to process from basedir; if empty, exit
     process each file:
         upload to s3
-        object naming convention: base-dir/location/YYYY/MM/DD/HH/mm-topic.dat
         on success remove from basedir; else raise and exit
     """
     parser = argparse.ArgumentParser()
@@ -78,7 +82,21 @@ def main():
     # r=root, d=directories, f = files
     for r, d, f in walk(args.basedir):
         for file in f:
-            print(path.join(r, file))
+            # construct object name from file
+            filename = path.join(r, file)
+
+            modtime = time.strftime(
+                "%Y/%m/%d/%H/%M", time.localtime(path.getmtime(filename))
+            )
+
+            dirname = path.dirname(filename)
+            basename = path.basename(filename)
+            if not basename.endswith(".dat"):
+                basename = f"{basename}.dat"
+
+            objectName = f"{dirname}/{modtime}-{basename}"
+
+            print(filename, objectName)
 
 
 if __name__ == "__main__":

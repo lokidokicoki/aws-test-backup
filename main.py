@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+from os import path
 
 try:
     import boto3
@@ -27,6 +28,22 @@ def main():
     args = parser.parse_args()
 
     print(f"aws-backup from:{args.basedir} to:{args.s3bucket}")
+
+    if not path.exists(args.basedir):
+        raise RuntimeError(f"The basedir `{args.basedir}` does not exist!")
+
+    # get s3 client
+    s3 = boto3.resource("s3")
+
+    # raise an error is the passed bucket is not accessible
+    if args.s3bucket not in s3.buckets.all():
+        raise RuntimeError(
+            f"S3 bucket `{args.s3bucket}` either does not exist or is not accessible!"
+        )
+
+
+# data = open('test.jpg', 'rb')
+# s3.Bucket('my-bucket').put_object(Key='test.jpg', Body=data)
 
 
 if __name__ == "__main__":
